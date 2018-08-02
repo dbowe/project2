@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+
+{% block javascripts %}
+        <script src="{{ url_for('static', filename='index.js') }}"></script>
+{% endblock %}
+
+{% block heading %}
+   Flack Chat
+{% endblock %}
+
+{% block body %}
+  <h2 id="myname"></h2>
+  <h4 id="welcome"></h4> 
+      <p>
+	<form action="{{ url_for('flackchat') }}", method="post">
+	  <table>
+	    <tr>
+	      <td class="bold">Display Name:</td>
+	      <td><input id="displayname" type="text" name="displayname" size="50" required></td></tr>
+	  </table>
+	  <button name"signin" id="signin">Sign In</button><input type="reset">
+	</form>
+{% endblock %}

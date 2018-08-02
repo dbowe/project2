@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+
+{% block javascripts %}
+        <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
+        <script src="{{ url_for('static', filename='channels.js') }}"></script>
+
+
+{% endblock %}
+
+{% block heading %}
+	Flack Chat Messaging
+{% endblock %}
+
+{% block body %}
+	<header>
+	  Logged in as <div id="dname">{{ name }}</div>
+	  </header>
+
+<section>
+  <nav>
+    Channels <p>
+    <p>
+      <table class="hoverTable" id="hoverTable">
+	</table>
+    <p>
+    Create new channel
+    <form id="new_channel" >
+    <input id="channel_name" type="text" name="new_channel" class="chn_name" autocomplete="off" autofocus placeholder="new channel">
+    <input id="submit" type=submit>
+    </form>
+    <p>
+      Active Users<br>
+      Select {{ name }} for DMs<br>
+      <table class="hoverTable" id="user_list">
+	</table>
+    <p>
+      Send a direct message 
+    <form id="new_dmessage">
+      To: <input id="dm_recipient" type="text" autocomplete="off" placeholder="Recipient"><br>
+      Message: <textarea id="direct_message" class="newchn_msg" wrap="soft"placeholder="New DM"> </textarea>
+      <input id="dm_submit" type=submit>
+    </form>
+    <form action="{{ url_for('logout') }}", method="post">
+      <button>Log Out</button>
+    </form>
+
+  </nav>
+
+  <article>
+    <h4 id="message_header">Messages</h4>
+    <table class="hoverTable" id="message_list">
+	</table>
+    <h4>Enter new message</h4>
+    <form id="new_message">
+      <textarea class="newchn_msg" id="message_text" placeholder="Enter message here" wrap="soft">
+	</textarea>
+      <input type="hidden" value= {{ name }} id="displayname">
+      <input id="msg_submit" type="submit">
+    </form>
+
+    </article>
+
+</section>
+
+  
+{% endblock %}
