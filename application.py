@@ -67,65 +67,79 @@ def query_channels():
 
 @app.route("/query_users", methods=["POST"])
 def query_users():
-    print(f"query_users: user_list = ", user_list)
     return jsonify({"success": True, "active_users": user_list})
 
 @app.route("/query_messages", methods=["POST"])
 def fetch_messages():
     channel = request.form.get("channel")
     dn = request.form.get("displayname")
+
     if (channel_messages.get(channel)):
         my_msgs = channel_messages[channel]['messages']
         return jsonify({"success": True, "channel_msgs": my_msgs})
     else: 
-        print (f"query_messages: channel = ", channel, "get = ", user_dm_list[channel])
         if (user_dm_list.get(channel)):
-            my_msgs = user_dm_list[channel]['messages']
-            return jsonify({"success": True, "channel_msgs": my_msgs})
+            # querying own private channel
+            if (channel == dn):
+#                print (f"query_message: channel & dn = ", channel)
+#                print (f"query_message: user_dm_list[channel] =", user_dm_list[channel])
+                my_msgs = user_dm_list[channel]['messages']
+                return jsonify({"success": True, "channel_msgs": my_msgs})
+            else:
+                # return only messages matching dn
+#                print (f"query_message: channel = ", channel, "dn = ", dn)
+                all_msgs = user_dm_list[channel]['messages']
+#                print (f"query_messages: all_msgs = ", all_msgs)
+                return jsonify({"success": True, "channel_msgs": all_msgs})
         else:
             return jsonify({"success": False, "error_msg": "No messages"})
 
 @socketio.on("submit message")
 def new_message(data):
     channel = data["channel"]
+    user_from = data["user_from"]
+    msg_txt = data["msg_txt"]
     timestamp = time.asctime( time.localtime( time.time() ) )
 
 
-    msg = {"channel": channel, "user_from": data["user_from"], "user_to": "", "timestamp": timestamp, "msg_txt": data["msg_txt"]}
+    msg = {"channel": channel, 
+           "user_from": user_from, 
+           "user_to": channel, 
+           "timestamp": timestamp, 
+           "msg_txt": msg_txt}
     if channel in channel_messages:
-        msgs = channel_messages[data["channel"]]
+        # Public Channel with messages
+        msgs = channel_messages[channel]
         if len(msgs['messages']) >= 100:
             del msgs['messages'][0]
         msgs['messages'].append(msg)
+        emit("announce message", msg, broadcast=True)
+        return jsonify ({"success": True})
     else:
-        channel_messages[channel] = {"channel": channel, "messages": [msg]}
-    emit("announce message", msg, broadcast=True)
-    return 1
-
-@socketio.on("submit dm")
-def new_dm(data):
-    user_to = data["dm_to"]
-    user_from = data["dm_from"]
-    timestamp = time.asctime( time.localtime( time.time() ) )
-
-    if (user_to in user_dm_list):
-        for user in [user_to, user_from]:
-            msg = {"channel": user, "user_from": user_from, "user_to": user_to, "timestamp": timestamp, "msg_txt": data["dm_text"]}
-#            print (f"new_dm: user = ", user, " user_to = ", user_to, " user_from = ", user_from)
-            if user in user_dm_list:
-                msgs = user_dm_list[user]
-#                print(f"new_dm: user msgs is ", user_dm_list[user])
-                if len(msgs['messages']) >= 100:
-                    del msgs['messages'][0]
-                    msgs['messages'].append(msg)
-                else:
-                    user_dm_list[user] = {"channel": user, "messages": [msg]}
-                    print(f"new_dm: user msgs is ", user_dm_list[user])
-                    rm = Rooms[user]
-                    emit("add message", msg, room=rm)
-                return jsonify ({"success": True})
-    else:
-        return jsonify ({"success": False, "error": "No such user"})
+        if (not (channel in user_dm_list)):
+            # public channel, first message
+            print (f"add_message: channel = ", channel, " first message")
+            channel_messages[channel] = {"channel": channel, "messages": [msg]}
+            emit("announce message", msg, broadcast=True)
+            return jsonify ({"success": True})
+        else: 
+            # private message
+            if (channel in user_dm_list):
+                print (f"add_message: channel = ", channel, " private message from ", user_from)
+                for user in [channel, user_from]:
+                    print (f"add_message user = ", user)
+                    msgs = user_dm_list[user]
+                    if len(msgs['messages']) >= 100:
+                        del msgs['messages'][0]
+                        msgs['messages'].append(msg)
+                    else:
+                        user_dm_list[user] = {"channel": user, "messages": [msg]}
+                        rm = Rooms[user]
+                        print (f"add_message: Private message: user = ", user)
+                        emit("annouce message", msg, room=rm)
+                        return jsonify ({"success": True})
+            else:
+                return jsonify ({"success": False, "error": "No such user"})
 
 @socketio.on('join')
 def on_join(data):

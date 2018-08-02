@@ -30,16 +30,8 @@
     </form>
     <p>
       Active Users<br>
-      Select {{ name }} for DMs<br>
       <table class="hoverTable" id="user_list">
 	</table>
-    <p>
-      Send a direct message 
-    <form id="new_dmessage">
-      To: <input id="dm_recipient" type="text" autocomplete="off" placeholder="Recipient"><br>
-      Message: <textarea id="direct_message" class="newchn_msg" wrap="soft"placeholder="New DM"> </textarea>
-      <input id="dm_submit" type=submit>
-    </form>
     <form action="{{ url_for('logout') }}", method="post">
       <button>Log Out</button>
     </form>
