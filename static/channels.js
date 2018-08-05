@@ -1,7 +1,6 @@
 var global_channel_list = [];
 var global_user_list = [];
 var global_current_channel;
-var global_dm_id;
 var msgType = "PUBLIC";
 let displayname = localStorage.getItem('displayname');
 
@@ -9,10 +8,6 @@ function clickhandler(chn) {
     // unweight the previous channel
     if (global_channel_list.includes(global_current_channel)) {
 	document.getElementById(global_current_channel).style.fontWeight = "normal";
-    }
-
-    if (global_user_list.includes(global_dm_id)) {
-	document.getElementById(global_dm_id).style.fontWeight = "normal";
     }
 
     global_current_channel =  chn;
@@ -33,11 +28,8 @@ function dm_clickhandler(usr) {
 
     // unweight the regular channel.  May do nothing
     document.getElementById(global_current_channel).style.fontWeight = "normal";
-    if (global_user_list.includes(global_dm_id)) {
-	document.getElementById(global_dm_id).style.fontWeight = "normal";
-    }
     
-    global_dm_id = usr;
+    global_current_channel = usr;
     // weight font on the new channel
     document.getElementById(usr).style.fontWeight = "bold";
 
@@ -102,7 +94,6 @@ function configure_channels() {
     else {
 	global_current_channel = "General";
     }
-    global_dm_id = localStorage.getItem('displayname')
     // Callback function for when request completes
     request.onload = () => {
 
@@ -250,7 +241,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dn != displayname) {
 	displayname = dn;
 	localStorage.setItem("displayname", dn);
-	global_dm_id = dn;
     }
 
     socket.on('connect', () => {
@@ -304,22 +294,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('new user', data => {
 	    // Don't add self twice
-	    if (data["username"] != displayname) {
+	    if ((data["username"] == displayname) || 
+	        (global_user_list.includes(data["username"]))) {
+		return false;
+	    }
+	    else {
 		add_user(data["username"]);
-	    };
+	    }
 	});
 
     // When a new message is announced, add to the message list
     socket.on('announce message', data => {
-	    console.log("announce message: msgType = ", msgType, "channel = ", data["channel"]);
-	    if (msgType == "PUBLIC") {
-		if (data["channel"] == global_current_channel) {
-		    add_message(data);
-		}
-	    }
-	    else {
-		console.log ("announce message: DM on ", data["channel"]);
-		    add_message(data);
+	    console.log ("AM: arrived.  channel = ", data["channel"]);
+	    if (data["channel"] == global_current_channel) {
+		console.log("announce message: msgType = ", data["msg_type"], "channel = ", data["channel"]);
+		add_message(data);
 	    }
 	});
 
@@ -331,12 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	document.getElementById('message_text').value = "";
 	document.getElementById('msg_submit').disabled = true;
-	if (msgType == "PUBLIC") {
-	    chn = global_current_channel;
-	}
-	else {
-	    chn = global_dm_id;
-	}
+	chn = global_current_channel;
 	// Submit channel (or user_to), timestamp, user_from, msg_txt
 	socket.emit('submit message', {'msg_txt': val, 'channel': chn,'timestamp': dt, 'user_from': displayname});
 	return false;

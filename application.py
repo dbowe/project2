@@ -75,18 +75,13 @@ def fetch_messages():
     dn = request.form.get("displayname")
     msg_status = request.form.get("msg_type")
 
-    print (f"QM[0.0]: msg_status == PUBLIC is ", msg_status == 'PUBLIC')
     if (msg_status == "PUBLIC"):
-        print (f"QM[0.1]: msg_status = ", msg_status, "channel = ", channel, "channel_messages = ", channel_messages)
         my_msgs = channel_messages.get(channel)
     else: 
-        print (f"QM[0.2]: msg_status = ", msg_status, "channel_= ", channel, "user_dm_list = ", user_dm_list)
         my_msgs = user_dm_list.get(channel)
 
-    print (f"QM[1]: channel =", channel, "dn = ", dn, " msg_status = ", msg_status, " my_msgs = ", my_msgs)
     if (my_msgs):
         msglist = my_msgs['messages']
-        print (f"QM[2]: msglist = ", msglist)
         if ((msg_status == "PUBLIC") or (channel == dn)):
             return jsonify({"success": True, "channel_msgs": msglist})
         else:
@@ -94,7 +89,6 @@ def fetch_messages():
             for msg in msglist:
                 # return only messages matching dn
                 if ((msg["user_from"] == dn) or (msg['user_to'] == dn)):
-                    print (f"QM[3]: appending msg ", msg)
                     all_msgs.append(msg)
             return jsonify({"success": True, "channel_msgs": all_msgs})
     else:
@@ -116,19 +110,22 @@ def new_message(data):
     if channel in channel_messages:
         # Public Channel with messages
         msgs = channel_messages[channel]
+        msg["msg_type"] = "PUBLIC"
         if len(msgs['messages']) >= 100:
             del msgs['messages'][0]
         msgs['messages'].append(msg)
         emit("announce message", msg, broadcast=True)
-        return jsonify ({"success": True})
+        return jsonify ({"success": True, "msg_type": "PUBLIC"})
     else:
         if (not (channel in user_dm_list)):
             # public channel, first message
+            msg["msg_type"] = "PUBLIC"
             channel_messages[channel] = {"channel": channel, "messages": [msg]}
             emit("announce message", msg, broadcast=True)
-            return jsonify ({"success": True})
+            return jsonify ({"success": True, "msg_type": "PUBLIC"})
         else: 
             # private message
+            msg["msg_type"] = "PRIVATE"
             if (channel in user_dm_list):
                 for user in [user_from, channel]:
                     msgs = user_dm_list[user]
@@ -137,9 +134,13 @@ def new_message(data):
                     msgs['messages'].append(msg)
             else:
                 user_dm_list[user] = {"channel": channel, "messages": [msg]}
+            print (f"NM: emit msg to ", user_from)
+            msg["channel"] = channel
             emit("announce message", msg, room=Rooms[user_from])
+            print (f"NM: emit msg to ", channel)
+            msg["channel"] = user_from
             emit("announce message", msg, room=Rooms[channel])
-            return jsonify ({"success": True})
+            return jsonify ({"success": True, "msg_type": "PRIVATE"})
 
 @socketio.on('join')
 def on_join(data):
