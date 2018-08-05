@@ -1,45 +1,48 @@
-var existing_channels = [];
-var existing_users = [];
-var gl_curchannel;
-var gl_cur_dm;
-var isPublic = true;
+var global_channel_list = [];
+var global_user_list = [];
+var global_current_channel;
+var global_dm_id;
+var msgType = "PUBLIC";
 let displayname = localStorage.getItem('displayname');
 
 function clickhandler(chn) {
     // unweight the previous channel
-    document.getElementById(gl_curchannel).style.fontWeight = "normal";
+    if (global_channel_list.includes(global_current_channel)) {
+	document.getElementById(global_current_channel).style.fontWeight = "normal";
+    }
 
-    gl_curchannel =  chn;
-    isPublic = true;
+    if (global_user_list.includes(global_dm_id)) {
+	document.getElementById(global_dm_id).style.fontWeight = "normal";
+    }
+
+    global_current_channel =  chn;
+    msgType = "PUBLIC";
     let hdr = document.getElementById("message_header");
 
     // weight font on the new channel
-    document.getElementById(gl_curchannel).style.fontWeight = "bold";
+    document.getElementById(global_current_channel).style.fontWeight = "bold";
 
-    hdr.innerHTML = " Messages on " + gl_curchannel + " channel";
-    localStorage.setItem("channel", gl_curchannel);
-    configure_msgs(gl_curchannel);
+    hdr.innerHTML = " Messages on " + global_current_channel + " channel";
+    localStorage.setItem("channel", global_current_channel);
+    configure_msgs(global_current_channel, msgType);
 }
 
 function dm_clickhandler(usr) {
     let hdr = document.getElementById("message_header");
-    isPublic = false;
+    msgType = "PRIVATE";
 
     // unweight the regular channel.  May do nothing
-    document.getElementById(gl_curchannel).style.fontWeight = "normal";
-    document.getElementById(gl_cur_dm).style.fontWeight = "normal";
+    document.getElementById(global_current_channel).style.fontWeight = "normal";
+    if (global_user_list.includes(global_dm_id)) {
+	document.getElementById(global_dm_id).style.fontWeight = "normal";
+    }
     
-    gl_cur_dm = usr;
+    global_dm_id = usr;
     // weight font on the new channel
     document.getElementById(usr).style.fontWeight = "bold";
 
-    if (usr == displayname) {
-	hdr.innerHTML = "Your Direct Messages";
-    }
-    else {
-	hdr.innerHTML = "Conversations with " + usr;
-    }
-    configure_msgs(usr);
+    hdr.innerHTML = "Conversations with " + usr;
+    configure_msgs(usr, msgType);
 }
 
 
@@ -57,7 +60,7 @@ function add_channel(chn, selected) {
     new_chn_row.setAttribute("id", chntrow);
     new_chn_row.setAttribute("class", "channel-listing");
     new_chn_row.setAttribute("data-channel", chn);
-    existing_channels.push(chn);
+    global_channel_list.push(chn);
 
     var emnt = new_chn_row.querySelector("td");
     emnt.addEventListener("click", function() { clickhandler (chn); });
@@ -81,7 +84,7 @@ function add_user(usr) {
     new_usr_row.setAttribute("id", usrtrow);
     new_usr_row.setAttribute("class", "user-listing");
     new_usr_row.setAttribute("data-user", usr);
-    existing_users.push(usr);
+    global_user_list.push(usr);
 
     var emnt = new_usr_row.querySelector("td");
     emnt.addEventListener("click", function() { dm_clickhandler (usr); });
@@ -94,12 +97,12 @@ function configure_channels() {
     request.open('POST', '/query_channels');
 	 
     if (localStorage.getItem('channel')) {
-	gl_curchannel = localStorage.getItem('channel');
+	global_current_channel = localStorage.getItem('channel');
     }
     else {
-	gl_curchannel = "General";
+	global_current_channel = "General";
     }
-    gl_cur_dm = localStorage.getItem('displayname')
+    global_dm_id = localStorage.getItem('displayname')
     // Callback function for when request completes
     request.onload = () => {
 
@@ -110,7 +113,7 @@ function configure_channels() {
 	if (data.success) {
 	    var channels = data["channel_list"];
 	    for (var i = 0, len = channels.length; i < len; i++) {
-		if (channels[i] == gl_curchannel){
+		if (channels[i] == global_current_channel){
 		    add_channel(channels[i], 1);
 		}
 		else {
@@ -157,7 +160,7 @@ function clear_users() {
 	myNode.removeChild(myNode.firstChild);
     }
 }
-function configure_msgs(chn) {
+function configure_msgs(chn, isPub) {
     // Clear out old message list
     clear_messages();
 
@@ -165,7 +168,8 @@ function configure_msgs(chn) {
 
     const request = new XMLHttpRequest();
     request.open('POST', '/query_messages');
-	    
+
+    console.log ("CM: msgType = ", msgType)
     // Callback function for when request completes
     request.onload = () => {
 
@@ -186,6 +190,9 @@ function configure_msgs(chn) {
     const data = new FormData();
     data.append('channel', chn);
     data.append('displayname', displayname);
+    data.append('msg_type', msgType);
+    
+    console.log ("CM: data = ", data)
 
     // Send request
     request.send(data);
@@ -243,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dn != displayname) {
 	displayname = dn;
 	localStorage.setItem("displayname", dn);
-	gl_cur_dm = dn;
+	global_dm_id = dn;
     }
 
     socket.on('connect', () => {
@@ -279,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    
 	var chn  = document.getElementById('channel_name').value;
 
-	if (existing_channels.includes(chn)) {
+	if (global_channel_list.includes(chn)) {
 	    alert ("Channel already exists");
 	}
 	else {
@@ -304,10 +311,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // When a new message is announced, add to the message list
     socket.on('announce message', data => {
-	    if (data["channel"] == gl_curchannel) {
-		add_message(data);
+	    console.log("announce message: msgType = ", msgType, "channel = ", data["channel"]);
+	    if (msgType == "PUBLIC") {
+		if (data["channel"] == global_current_channel) {
+		    add_message(data);
+		}
 	    }
-    });
+	    else {
+		console.log ("announce message: DM on ", data["channel"]);
+		    add_message(data);
+	    }
+	});
 
     document.getElementById("new_message").onsubmit = () => {
 	    
@@ -317,11 +331,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	document.getElementById('message_text').value = "";
 	document.getElementById('msg_submit').disabled = true;
-	if (isPublic) {
-	    chn = gl_curchannel;
+	if (msgType == "PUBLIC") {
+	    chn = global_current_channel;
 	}
 	else {
-	    chn = gl_cur_dm;
+	    chn = global_dm_id;
 	}
 	// Submit channel (or user_to), timestamp, user_from, msg_txt
 	socket.emit('submit message', {'msg_txt': val, 'channel': chn,'timestamp': dt, 'user_from': displayname});
