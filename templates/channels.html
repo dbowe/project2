@@ -24,6 +24,7 @@
 	</table>
     <p>
     Create new channel
+    <p>
     <form id="new_channel" >
     <input id="channel_name" type="text" name="new_channel" class="chn_name" autocomplete="off" autofocus placeholder="new channel">
     <input id="submit" type=submit>
@@ -32,9 +33,8 @@
       Direct Messages<br>
       <table class="hoverTable" id="user_list">
 	</table>
-    <form action="{{ url_for('logout') }}", method="post">
-      <button>Log Out</button>
-    </form>
+      <p>
+	<button id="logout_button" type=submit>Log Out</button>
 
   </nav>
 

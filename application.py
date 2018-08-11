@@ -8,7 +8,7 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 socketio = SocketIO(app)
 
-# Arrays of channel names and active users
+# Arrays of channel names and registered users
 channel_list = ["General"]
 user_list = []
 
@@ -41,7 +41,7 @@ channel_messages = {
 def index():
     return render_template("index.html")
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
 def logout():
     return render_template("index.html")
 
@@ -145,29 +145,40 @@ def new_message(data):
 @socketio.on('join')
 def on_join(data):
     username = data['displayname']
-    if (username in user_list):
-        return jsonify ({"success": False, "error_msg": "Display name in use"})
+    if (username == ""):
+        return jsonify ({"success": False, "error_msg": "No text entered"})
+
+    if (not (username in user_list)):
+        user_list.append(username)
+        user_dm_list[username] = ({"channel": username, "messages": []})
+        emit("new user", {"username": username}, broadcast= True)
     else:
-        if (username == ""):
-            return jsonify ({"success": False, "error_msg": "No text entered"})
+        emit("user logged in", {"username": username}, broadcast=True)
 
     room = data['room']
-    user_dm_list[username] = ({"channel": username, "messages": []})
-    user_list.append(username)
     join_room(room)
     Rooms[username] = room
-    emit("new user", {"username": username}, broadcast= True)
+    print (f"username ", username, "has room ", Rooms[username])
     return jsonify ({"success": True})
+
+@socketio.on('logout user')
+def on_leave(data):
+    username = data['displayname']
+    print (f"username ", username, " logging out")
+    room = Rooms[username]
+    leave_room(room)
+    del Rooms[username]
+    emit("user logged out", {"username": username}, broadcast=True)
 
 @socketio.on('leave')
 def on_leave(data):
-    username = data['user_from']
-    room = data['room']
-    if (username in Rooms):
-        leave_room(room)
-        del Rooms["username"]
-        emit("user left", {"username": username}, broadcast=True)
-    return 1
+    username = data['displayname']
+    print (f"username ", username, " logging out")
+    room = Rooms[username]
+    leave_room(room)
+    del Rooms[username]
+    emit("user logged out", {"username": username}, broadcast=True)
+
 
 if __name__ == "__main__":
     app.run()

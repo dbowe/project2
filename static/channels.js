@@ -26,7 +26,7 @@ function dm_clickhandler(usr) {
     let hdr = document.getElementById("message_header");
     msgType = "PRIVATE";
 
-    // unweight the regular channel.  May do nothing
+    // unweight the regular channel.
     document.getElementById(global_current_channel).style.fontWeight = "normal";
     
     global_current_channel = usr;
@@ -60,6 +60,22 @@ function add_channel(chn, selected) {
     if (selected == 1) {
 	clickhandler(chn);
     }
+}
+
+// Activate a user
+function activate_user(usr) {
+    const logged_in = document.getElementById(usr);
+    console.log ("AU: usr = ", usr);
+    logged_in.style.fontWeight = "normal";
+}
+
+// Deactivate a user
+function deactivate_user(usr) {
+    const logged_in = document.getElementById(usr);
+
+    console.log ("DU: logged in is ", logged_in);
+    logged_in.style.fontWeight = "normal";
+    logged_in.style.fontStyle = "italic";
 }
 
 // Add a user to the list.  
@@ -207,8 +223,7 @@ function configure_users() {
 		
 	// Extract dictionary of messages and populate message pane
 	if (data.success) {
-	    var users = data["active_users"];
-	    console.log ("configure_users: users = ", users);
+	    users = data["active_users"]
 	    for (var i = 0, len = users.length; i < len; i++) {
 		if (users[i] != 'None') {
 		    console.log ("configure:users: adding ", users[i]);
@@ -287,6 +302,27 @@ document.addEventListener('DOMContentLoaded', () => {
 	return false;
     };
 	    
+    document.getElementById("logout_button").onclick = () => {
+	const request = new XMLHttpRequest();
+	request.open('POST', '/logout');
+
+	socket.emit('logout user', {'displayname': displayname});
+	// Callback function for when request completes
+	request.onload = () => {
+
+	    // Extract JSON data from request
+	    //	    const data = JSON.parse(request.responseText);
+	}
+
+	const data = new FormData();
+	data.append('displayname', displayname);
+
+	// Send request
+	request.send();
+	return false;
+	 
+    };
+
     // When a new channel is announced, add to the channel list
     socket.on('announce channel', data => {
 	    add_channel(data["channel"], 0);
@@ -303,11 +339,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	    }
 	});
 
+    socket.on('user logged in', data => {
+	    activate_user(data["username"]);
+	});
+
+    socket.on('user logged out', data => {
+	    console.log ("Received logout message for ", data["username"])
+	    deactivate_user(data["username"]);
+	});
+
     // When a new message is announced, add to the message list
     socket.on('announce message', data => {
-	    console.log ("AM: arrived.  channel = ", data["channel"]);
 	    if (data["channel"] == global_current_channel) {
-		console.log("announce message: msgType = ", data["msg_type"], "channel = ", data["channel"]);
 		add_message(data);
 	    }
 	});
